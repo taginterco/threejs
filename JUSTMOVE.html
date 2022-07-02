@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>My attempt loading the fbx</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+        <style>
+			body {
+				background-color: #fff;
+				color: #444;
+			}
+			a {
+				color: #08f;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - FBXLoader<br />
+			This is my attempt <a href="https://www.mixamo.com/" target="_blank" rel="noopener">MD2 Loader</a>
+		</div>
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import Stats from './jsm/libs/stats.module.js';
+
+			import { OrbitControls } from './jsm/controls/OrbitControls.js';
+			import { FBXLoader } from './jsm/loaders/FBXLoader.js';
+
+			let camera, scene, renderer, stats;
+
+			const clock = new THREE.Clock();
+
+			
+			const controls = {
+
+				moveForward: false,
+				moveBackward: false,
+				moveLeft: false,
+				moveRight: false
+
+			};
+			
+
+			let mixer;
+
+			init();
+			animate();
+
+			function init() {
+
+				const container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 4000 );
+				camera.position.set( 0, 150, 1300 );
+
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 'white' );
+	            scene.fog = new THREE.Fog( 0xffffff, 1000, 4000 );
+			
+
+				scene.add( new THREE.AmbientLight( 0x222222 ) );
+
+				const light = new THREE.DirectionalLight( 0xffffff, 2.25 );
+				light.position.set( 200, 450, 500 );
+
+				light.castShadow = true;
+
+				light.shadow.mapSize.width = 1024;
+				light.shadow.mapSize.height = 512;
+
+				light.shadow.camera.near = 100;
+				light.shadow.camera.far = 1200;
+
+				light.shadow.camera.left = - 1000;
+				light.shadow.camera.right = 1000;
+				light.shadow.camera.top = 350;
+				light.shadow.camera.bottom = - 350;
+
+				scene.add( light );
+
+				// scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );
+
+				// ground
+				const gt = new THREE.TextureLoader().load( 'textures/terrain/grasslight-big.jpg' );
+				const gg = new THREE.PlaneGeometry( 16000, 16000 );
+				const gm = new THREE.MeshPhongMaterial( { color: 0xffffff, map: gt } );
+
+				const ground = new THREE.Mesh( gg, gm );
+				ground.rotation.x = - Math.PI / 2;
+				ground.material.map.repeat.set( 64, 64 );
+				ground.material.map.wrapS = THREE.RepeatWrapping;
+				ground.material.map.wrapT = THREE.RepeatWrapping;
+				ground.material.map.encoding = THREE.sRGBEncoding;
+	            ground.receiveShadow = true;
+
+				scene.add( ground );
+
+				// model
+				const loader = new FBXLoader();
+				loader.load( 'models/fbx/SK_AdvancedCombatDroidV3.fbx', function ( object ) {
+
+
+					mixer = new THREE.AnimationMixer( object );
+
+					const action = mixer.clipAction( object.animations[ 0 ] );
+					action.play();
+
+					object.traverse( function ( child ) {
+
+						if ( child.isMesh ) {
+
+							child.castShadow = true;
+							child.receiveShadow = true;
+
+						}
+
+					} );
+
+					scene.add( object );
+
+				} );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.shadowMap.enabled = true;
+				container.appendChild( renderer.domElement );
+
+				const controls = new OrbitControls( camera, renderer.domElement );
+				controls.target.set( 0, 100, 0 );
+				controls.update();
+
+				window.addEventListener( 'resize', onWindowResize );
+
+				// stats
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			//
+
+			function onKeyDown( event ) {
+
+				switch ( event.code ) {
+
+					case 'ArrowUp':
+					case 'KeyW': controls.moveForward = true; break;
+
+					case 'ArrowDown':
+					case 'KeyS': controls.moveBackward = true; break;
+
+					case 'ArrowLeft':
+					case 'KeyA': controls.moveLeft = true; break;
+
+					case 'ArrowRight':
+					case 'KeyD': controls.moveRight = true; break;
+
+					// case 'KeyC': controls.crouch = true; break;
+					// case 'Space': controls.jump = true; break;
+					// case 'ControlLeft':
+					// case 'ControlRight': controls.attack = true; break;
+
+				}
+
+			}
+
+			function onKeyUp( event ) {
+
+				switch ( event.code ) {
+
+					case 'ArrowUp':
+					case 'KeyW': controls.moveForward = false; break;
+
+					case 'ArrowDown':
+					case 'KeyS': controls.moveBackward = false; break;
+
+					case 'ArrowLeft':
+					case 'KeyA': controls.moveLeft = false; break;
+
+					case 'ArrowRight':
+					case 'KeyD': controls.moveRight = false; break;
+
+					// case 'KeyC': controls.crouch = false; break;
+					// case 'Space': controls.jump = false; break;
+					// case 'ControlLeft':
+					// case 'ControlRight': controls.attack = false; break;
+
+				}
+
+			}
+
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				const delta = clock.getDelta();
+
+				if ( mixer ) mixer.update( delta );
+
+				renderer.render( scene, camera );
+
+				stats.update(object);
+
+			}
+			
+
+		</script>
+
+	</body>
+</html>
